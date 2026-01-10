@@ -6,13 +6,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -39,5 +40,6 @@ public class Application extends BaseEntity{
     private String notes;
 
     @OneToMany(mappedBy = "application" , cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Interview> interviews = new ArrayList<>();
 }
