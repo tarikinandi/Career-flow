@@ -32,9 +32,45 @@ services:
       - postgres
     networks:
       - career-network
+  
+  sonarqube:
+    image: sonarqube:community
+    container_name: career_flow_sonar
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_JDBC_URL=jdbc:postgresql://sonar-db:5432/${SONAR_DB}
+      - SONAR_JDBC_USERNAME=${SONAR_USER}
+      - SONAR_JDBC_PASSWORD=${SONAR_PASSWORD}
+    volumes:
+      - sonar_data:/opt/sonarqube/data
+      - sonar_extensions:/opt/sonarqube/extensions
+      - sonar_logs:/opt/sonarqube/logs
+    depends_on:
+      - sonar-db
+    networks:
+      - career-network
+
+  sonar-db:
+    image: postgres:17-alpine
+    container_name: career_flow_sonar_db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${SONAR_USER}
+      - POSTGRES_PASSWORD=${SONAR_PASSWORD}
+      - POSTGRES_DB=${SONAR_DB}
+    volumes:
+      - sonar_db_data:/var/lib/postgresql/data
+    networks:
+      - career-network
 
 volumes:
   postgres_data:
+  sonar_data:
+  sonar_extensions:
+  sonar_logs:
+  sonar_db_data:
 
 networks:
   career-network:
