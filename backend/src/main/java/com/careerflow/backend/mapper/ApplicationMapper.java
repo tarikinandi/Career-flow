@@ -13,7 +13,7 @@ public interface ApplicationMapper {
     @Mapping(target = "interviews", ignore = true)
     Application toEntity(ApplicationRequest applicationRequest);
 
-    ApplicationResponse toDto(Application entity);
+    ApplicationResponse toResponse(Application entity);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
