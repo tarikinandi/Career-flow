@@ -2,6 +2,7 @@ package com.careerflow.backend.service.impl;
 
 import com.careerflow.backend.dto.request.InterviewRequest;
 import com.careerflow.backend.dto.response.InterviewResponse;
+import com.careerflow.backend.exception.ResourceNotFoundException;
 import com.careerflow.backend.mapper.InterviewMapper;
 import com.careerflow.backend.model.Application;
 import com.careerflow.backend.model.Interview;
@@ -24,20 +25,22 @@ public class InterviewServiceImpl implements InterviewService {
     private final InterviewMapper interviewMapper;
 
     @Override
+    @Transactional
     public InterviewResponse createInterview(Long applicationId, InterviewRequest request) {
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application not found for this id : " + applicationId));
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found with id: " + applicationId));
+
         Interview interview = interviewMapper.toEntity(request);
         interview.setApplication(application);
 
         Interview savedInterview = interviewRepository.save(interview);
-        return interviewMapper.toResponse(interviewRepository.save(savedInterview));
+        return interviewMapper.toResponse(savedInterview);
     }
 
     @Override
     public List<InterviewResponse> getInterviewsByApplication(Long applicationId) {
         if (!applicationRepository.existsById(applicationId)){
-            throw new RuntimeException("Application not found for this id : " + applicationId);
+            throw new ResourceNotFoundException("Application not found for this id : " + applicationId);
         }
 
         return interviewRepository.findAllByApplicationId(applicationId)
@@ -51,7 +54,7 @@ public class InterviewServiceImpl implements InterviewService {
     @Transactional
     public void deleteInterview(Long id) {
         if (!interviewRepository.existsById(id)) {
-            throw new RuntimeException("Interview not found for this id : " + id);
+            throw new ResourceNotFoundException("Interview not found for this id : " + id);
         }
 
         interviewRepository.deleteById(id);

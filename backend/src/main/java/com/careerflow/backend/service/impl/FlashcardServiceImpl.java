@@ -26,7 +26,6 @@ public class FlashcardServiceImpl implements FlashcardService {
     private final DeckRepository deckRepository;
     private final FlashcardMapper flashcardMapper;
 
-
     @Override
     @Transactional
     public FlashcardResponse createFlashcard(FlashcardRequest request) {
