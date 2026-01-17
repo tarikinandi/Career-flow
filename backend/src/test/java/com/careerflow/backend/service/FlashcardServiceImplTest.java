@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,7 +37,7 @@ class FlashcardServiceImplTest {
     private FlashcardServiceImpl flashcardService;
 
     @Test
-    void createFlashcard_ShouldInitializeValuesCorrectly(){
+    void createFlashcard_ShouldInitializeValuesCorrectly() {
         FlashcardRequest request = new FlashcardRequest();
         request.setDeckId(1L);
 
@@ -45,6 +46,7 @@ class FlashcardServiceImplTest {
 
         FlashCard flashCard = FlashCard.builder().id(100L).build();
         FlashcardResponse response = new FlashcardResponse();
+        response.setId(100L);
 
         when(deckRepository.findById(1L)).thenReturn(Optional.of(deck));
         when(flashcardMapper.toEntity(request)).thenReturn(flashCard);
@@ -52,12 +54,13 @@ class FlashcardServiceImplTest {
         when(flashcardMapper.toResponse(flashCard)).thenReturn(response);
 
         FlashcardResponse result = flashcardService.createFlashcard(request);
+
         assertNotNull(result);
         verify(flashcardRepository).save(any(FlashCard.class));
     }
 
     @Test
-    void studyCard_ShouldResetProgress_WhenQualityIsLow(){
+    void studyCard_ShouldResetProgress_WhenQualityIsLow() {
         FlashCard card = FlashCard.builder()
                 .id(1L)
                 .repetitions(5)
@@ -70,6 +73,7 @@ class FlashcardServiceImplTest {
         when(flashcardMapper.toResponse(any(FlashCard.class))).thenReturn(new FlashcardResponse());
 
         flashcardService.studyCard(1L, 0);
+
         assertEquals(0, card.getRepetitions());
         assertEquals(1, card.getIntervalDays());
     }

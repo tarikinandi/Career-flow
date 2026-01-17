@@ -2,11 +2,16 @@ package com.careerflow.backend.controller;
 
 import com.careerflow.backend.dto.global.ApiResponse;
 import com.careerflow.backend.dto.request.DeckRequest;
+import com.careerflow.backend.dto.response.ApplicationResponse;
 import com.careerflow.backend.dto.response.DeckResponse;
 import com.careerflow.backend.service.DeckService;
 import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,8 +32,11 @@ public class DeckController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<DeckResponse>>> getAllDecks() {
-        return ResponseEntity.ok(ApiResponse.success(deckService.getAllDecks(), "Decks fetched successfully"));
+    public ResponseEntity<ApiResponse<Page<DeckResponse>>> getAllApplications(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+
+        Page<DeckResponse> response = deckService.getAllApplications(pageable);
+        return ResponseEntity.ok(ApiResponse.success(response, "Decks fetched successfully"));
     }
 
     @DeleteMapping("/{id}")

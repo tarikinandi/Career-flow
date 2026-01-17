@@ -5,14 +5,15 @@ import com.careerflow.backend.dto.response.DeckResponse;
 import com.careerflow.backend.exception.ResourceNotFoundException;
 import com.careerflow.backend.mapper.DeckMapper;
 import com.careerflow.backend.model.Deck;
+import com.careerflow.backend.model.User;
 import com.careerflow.backend.repository.DeckRepository;
 import com.careerflow.backend.service.DeckService;
+import com.careerflow.backend.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 
 @Service
@@ -26,16 +27,22 @@ public class DeckServiceImpl implements DeckService {
     @Override
     @Transactional
     public DeckResponse createDeck(DeckRequest request) {
+        User currentUser = SecurityUtils.getCurrentUser();
+
         Deck deck = deckMapper.toEntity(request);
+
+        deck.setUser(currentUser);
+
         Deck savedDeck = deckRepository.save(deck);
         return deckMapper.toResponse(savedDeck);
     }
 
     @Override
-    public List<DeckResponse> getAllDecks() {
-        return deckRepository.findAll().stream()
-                .map(deckMapper::toResponse)
-                .collect(Collectors.toList());
+    public Page<DeckResponse> getAllApplications(Pageable pageable) {
+        User currentUser = SecurityUtils.getCurrentUser();
+
+        return deckRepository.findByUserId(currentUser.getId(), pageable)
+                .map(deckMapper::toResponse);
     }
 
     @Override

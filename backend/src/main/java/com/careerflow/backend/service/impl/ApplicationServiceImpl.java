@@ -5,8 +5,10 @@ import com.careerflow.backend.dto.response.ApplicationResponse;
 import com.careerflow.backend.exception.ResourceNotFoundException;
 import com.careerflow.backend.mapper.ApplicationMapper;
 import com.careerflow.backend.model.Application;
+import com.careerflow.backend.model.User;
 import com.careerflow.backend.repository.ApplicationRepository;
 import com.careerflow.backend.service.ApplicationService;
+import com.careerflow.backend.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,15 +26,22 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final ApplicationMapper applicationMapper;
 
     @Override
+    @Transactional
     public ApplicationResponse createApplication(ApplicationRequest request) {
+        User currentUser = SecurityUtils.getCurrentUser();
+
         Application application = applicationMapper.toEntity(request);
+
+        application.setUser(currentUser);
+
         Application savedApplication = applicationRepository.save(application);
         return applicationMapper.toResponse(savedApplication);
     }
 
     @Override
     public Page<ApplicationResponse> getAllApplications(Pageable pageable) {
-        return applicationRepository.findAll(pageable)
+        User currentUser = SecurityUtils.getCurrentUser();
+        return applicationRepository.findByUserId(currentUser.getId(), pageable)
                 .map(applicationMapper::toResponse);
     }
 

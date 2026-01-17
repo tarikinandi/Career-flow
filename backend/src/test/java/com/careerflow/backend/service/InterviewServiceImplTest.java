@@ -6,15 +6,21 @@ import com.careerflow.backend.exception.ResourceNotFoundException;
 import com.careerflow.backend.mapper.InterviewMapper;
 import com.careerflow.backend.model.Application;
 import com.careerflow.backend.model.Interview;
+import com.careerflow.backend.model.User;
 import com.careerflow.backend.model.enums.InterviewRound;
 import com.careerflow.backend.repository.ApplicationRepository;
 import com.careerflow.backend.repository.InterviewRepository;
 import com.careerflow.backend.service.impl.InterviewServiceImpl;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 
@@ -31,6 +37,25 @@ class InterviewServiceImplTest {
 
     @InjectMocks
     private InterviewServiceImpl interviewService;
+
+    private User mockUser;
+
+    @BeforeEach
+    void setUp() {
+        mockUser = User.builder().id(1L).email("test@test.com").build();
+        Authentication authentication = mock(Authentication.class);
+        SecurityContext securityContext = mock(SecurityContext.class);
+
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.getPrincipal()).thenReturn(mockUser);
+
+        SecurityContextHolder.setContext(securityContext);
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void addInterview_ShouldThrowException_WhenApplicationNotFound() {
@@ -51,6 +76,7 @@ class InterviewServiceImplTest {
         Long appId = 1L;
         Application app = new Application();
         app.setId(appId);
+        app.setUser(mockUser);
 
         InterviewRequest request = new InterviewRequest();
         request.setRound(InterviewRound.RECRUITER_SCREEN);

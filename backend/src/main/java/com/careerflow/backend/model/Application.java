@@ -42,4 +42,8 @@ public class Application extends BaseEntity{
     @OneToMany(mappedBy = "application" , cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Interview> interviews = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 }
