@@ -48,9 +48,9 @@ public class DeckServiceImpl implements DeckService {
     @Override
     @Transactional
     public void deleteDeck(Long id) {
-        if (!deckRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Deck not found for this id : " + id);
-        }
-        deckRepository.deleteById(id);
+        Long userId = SecurityUtils.getCurrentUser().getId();
+        Deck deck = deckRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Deck not found for this id : " + id));
+        deckRepository.delete(deck);
     }
 }

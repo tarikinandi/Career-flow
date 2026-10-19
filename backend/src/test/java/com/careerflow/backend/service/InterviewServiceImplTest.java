@@ -62,7 +62,7 @@ class InterviewServiceImplTest {
         Long invalidAppId = 999L;
         InterviewRequest request = new InterviewRequest();
 
-        when(applicationRepository.findById(invalidAppId)).thenReturn(Optional.empty());
+        when(applicationRepository.findByIdAndUserId(invalidAppId, 1L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
                 () -> interviewService.createInterview(invalidAppId, request)
@@ -84,7 +84,7 @@ class InterviewServiceImplTest {
         Interview interview = new Interview();
         InterviewResponse response = new InterviewResponse();
 
-        when(applicationRepository.findById(appId)).thenReturn(Optional.of(app));
+        when(applicationRepository.findByIdAndUserId(appId, 1L)).thenReturn(Optional.of(app));
         when(interviewMapper.toEntity(request)).thenReturn(interview);
         when(interviewRepository.save(interview)).thenReturn(interview);
         when(interviewMapper.toResponse(interview)).thenReturn(response);

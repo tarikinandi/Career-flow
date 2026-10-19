@@ -47,17 +47,13 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     @Override
     public ApplicationResponse getApplicationById(Long id) {
-        Application application = applicationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Application not found for this id : " + id));
-
-        return applicationMapper.toResponse(application);
+        return applicationMapper.toResponse(findOwned(id));
     }
 
     @Override
     @Transactional
     public ApplicationResponse updateApplication(Long id, ApplicationRequest request) {
-        Application existingApp = applicationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Application not found for this id : " + id));
+        Application existingApp = findOwned(id);
         applicationMapper.updateEntityFromRequest(request, existingApp);
 
         Application updatedApp = applicationRepository.save(existingApp);
@@ -67,9 +63,13 @@ public class ApplicationServiceImpl implements ApplicationService {
     @Override
     @Transactional
     public void deleteApplication(Long id) {
-        if (!applicationRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Application not found for this id : " + id);
-        }
-        applicationRepository.deleteById(id);
+        applicationRepository.delete(findOwned(id));
+    }
+
+    /** Other users' applications are reported as missing (404), so their existence is not revealed. */
+    private Application findOwned(Long id) {
+        Long userId = SecurityUtils.getCurrentUser().getId();
+        return applicationRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found for this id : " + id));
     }
 }

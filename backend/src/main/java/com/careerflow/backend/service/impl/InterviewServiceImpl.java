@@ -9,6 +9,7 @@ import com.careerflow.backend.model.Interview;
 import com.careerflow.backend.repository.ApplicationRepository;
 import com.careerflow.backend.repository.InterviewRepository;
 import com.careerflow.backend.service.InterviewService;
+import com.careerflow.backend.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +28,7 @@ public class InterviewServiceImpl implements InterviewService {
     @Override
     @Transactional
     public InterviewResponse createInterview(Long applicationId, InterviewRequest request) {
-        Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Application not found with id: " + applicationId));
+        Application application = findOwnedApplication(applicationId);
 
         Interview interview = interviewMapper.toEntity(request);
         interview.setApplication(application);
@@ -39,9 +39,7 @@ public class InterviewServiceImpl implements InterviewService {
 
     @Override
     public List<InterviewResponse> getInterviewsByApplication(Long applicationId) {
-        if (!applicationRepository.existsById(applicationId)){
-            throw new ResourceNotFoundException("Application not found for this id : " + applicationId);
-        }
+        findOwnedApplication(applicationId);
 
         return interviewRepository.findAllByApplicationId(applicationId)
                 .stream()
@@ -49,14 +47,19 @@ public class InterviewServiceImpl implements InterviewService {
                 .collect(Collectors.toList());
     }
 
-
     @Override
     @Transactional
     public void deleteInterview(Long id) {
-        if (!interviewRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Interview not found for this id : " + id);
-        }
+        Long userId = SecurityUtils.getCurrentUser().getId();
+        Interview interview = interviewRepository.findByIdAndApplicationUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Interview not found for this id : " + id));
+        interviewRepository.delete(interview);
+    }
 
-        interviewRepository.deleteById(id);
+    /** Interviews are owned through their application; a foreign application is reported as missing (404). */
+    private Application findOwnedApplication(Long applicationId) {
+        Long userId = SecurityUtils.getCurrentUser().getId();
+        return applicationRepository.findByIdAndUserId(applicationId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found for this id : " + applicationId));
     }
 }

@@ -9,7 +9,13 @@ import com.careerflow.backend.model.FlashCard;
 import com.careerflow.backend.repository.DeckRepository;
 import com.careerflow.backend.repository.FlashcardRepository;
 import com.careerflow.backend.service.impl.FlashcardServiceImpl;
+import com.careerflow.backend.model.User;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextImpl;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -36,6 +42,17 @@ class FlashcardServiceImplTest {
     @InjectMocks
     private FlashcardServiceImpl flashcardService;
 
+    @BeforeEach
+    void setUp() {
+        User user = User.builder().id(1L).email("test@test.com").build();
+        SecurityContextHolder.setContext(new SecurityContextImpl(new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities())));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void createFlashcard_ShouldInitializeValuesCorrectly() {
         FlashcardRequest request = new FlashcardRequest();
@@ -48,7 +65,7 @@ class FlashcardServiceImplTest {
         FlashcardResponse response = new FlashcardResponse();
         response.setId(100L);
 
-        when(deckRepository.findById(1L)).thenReturn(Optional.of(deck));
+        when(deckRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(deck));
         when(flashcardMapper.toEntity(request)).thenReturn(flashCard);
         when(flashcardRepository.save(any(FlashCard.class))).thenReturn(flashCard);
         when(flashcardMapper.toResponse(flashCard)).thenReturn(response);
@@ -68,7 +85,7 @@ class FlashcardServiceImplTest {
                 .easinessFactor(2.5)
                 .build();
 
-        when(flashcardRepository.findById(1L)).thenReturn(Optional.of(card));
+        when(flashcardRepository.findByIdAndDeckUserId(1L, 1L)).thenReturn(Optional.of(card));
         when(flashcardRepository.save(any(FlashCard.class))).thenAnswer(i -> i.getArguments()[0]);
         when(flashcardMapper.toResponse(any(FlashCard.class))).thenReturn(new FlashcardResponse());
 
@@ -87,7 +104,7 @@ class FlashcardServiceImplTest {
                 .easinessFactor(2.5)
                 .build();
 
-        when(flashcardRepository.findById(1L)).thenReturn(Optional.of(card));
+        when(flashcardRepository.findByIdAndDeckUserId(1L, 1L)).thenReturn(Optional.of(card));
         when(flashcardRepository.save(any(FlashCard.class))).thenAnswer(i -> i.getArguments()[0]);
         when(flashcardMapper.toResponse(any(FlashCard.class))).thenReturn(new FlashcardResponse());
 
