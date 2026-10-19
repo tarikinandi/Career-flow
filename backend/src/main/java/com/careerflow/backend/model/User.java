@@ -24,6 +24,7 @@ public class User extends BaseEntity implements UserDetails {
     private String email;
 
     @Column(nullable = false)
+    @ToString.Exclude
     private String password;
 
     private String firstName;

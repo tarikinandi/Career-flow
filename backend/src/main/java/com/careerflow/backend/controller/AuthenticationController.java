@@ -5,6 +5,7 @@ import com.careerflow.backend.dto.request.AuthenticationRequest;
 import com.careerflow.backend.dto.request.RegisterRequest;
 import com.careerflow.backend.dto.response.AuthenticationResponse;
 import com.careerflow.backend.service.AuthenticationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,12 +21,12 @@ public class AuthenticationController {
     private final AuthenticationService authenticationService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authenticationService.register(request), "User registered successfully"));
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@RequestBody AuthenticationRequest request) {
+    public ResponseEntity<ApiResponse<AuthenticationResponse>> authenticate(@Valid @RequestBody AuthenticationRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authenticationService.authenticate(request), "User authenticated successfully"));
     }
 }

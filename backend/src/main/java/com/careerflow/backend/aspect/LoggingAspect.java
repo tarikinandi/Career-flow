@@ -10,7 +10,18 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
+/**
+ * Traces calls into controllers, services and repositories.
+ *
+ * Logging policy: this aspect never logs argument values or return values, because request
+ * DTOs (register, login) and responses (JWT) carry credentials. It logs the method name, the
+ * argument types, plain numeric/boolean/UUID/enum arguments (ids, flags) and the duration,
+ * all at DEBUG. Strings and objects are reduced to their type name. Failures log the
+ * exception type only, since exception messages can embed user input.
+ */
 @Aspect
 @Component
 @Slf4j
@@ -24,30 +35,44 @@ public class LoggingAspect {
 
     @AfterThrowing(pointcut = "springBeanPointcut()", throwing = "e")
     public void logAfterThrowing(JoinPoint joinPoint, Throwable e) {
-        log.error("Exception in {}.{}() with cause = {}", joinPoint.getSignature().getDeclaringTypeName(),
-                joinPoint.getSignature().getName(), e.getCause() != null ? e.getCause() : "NULL");
+        if (log.isDebugEnabled()) {
+            log.debug("Exception {} in {}.{}()", e.getClass().getSimpleName(),
+                    joinPoint.getSignature().getDeclaringType().getSimpleName(),
+                    joinPoint.getSignature().getName());
+        }
     }
 
     @Around("springBeanPointcut()")
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
-        long start = System.currentTimeMillis();
-
-        log.info("Enter: {}.{}() with argument[s] = {}", joinPoint.getSignature().getDeclaringTypeName(),
-                joinPoint.getSignature().getName(), Arrays.toString(joinPoint.getArgs()));
-
-        try {
-            Object result = joinPoint.proceed();
-
-            long elapsedTime = System.currentTimeMillis() - start;
-
-            log.info("Exit: {}.{}() with result = {} (Execution time: {} ms)", joinPoint.getSignature().getDeclaringTypeName(),
-                    joinPoint.getSignature().getName(), result, elapsedTime);
-
-            return result;
-        } catch (IllegalArgumentException e) {
-            log.error("Illegal argument: {} in {}.{}()", Arrays.toString(joinPoint.getArgs()),
-                    joinPoint.getSignature().getDeclaringTypeName(), joinPoint.getSignature().getName());
-            throw e;
+        if (!log.isDebugEnabled()) {
+            return joinPoint.proceed();
         }
+
+        String target = joinPoint.getSignature().getDeclaringType().getSimpleName()
+                + "." + joinPoint.getSignature().getName() + "()";
+        long start = System.nanoTime();
+        log.debug("Enter: {} args = {}", target, describeArguments(joinPoint.getArgs()));
+        try {
+            return joinPoint.proceed();
+        } finally {
+            log.debug("Exit: {} ({} ms)", target, (System.nanoTime() - start) / 1_000_000);
+        }
+    }
+
+    /** Only values that cannot carry credentials or personal data are shown; the rest is a type name. */
+    private static String describeArguments(Object[] args) {
+        return Arrays.stream(args)
+                .map(LoggingAspect::describe)
+                .collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    private static String describe(Object arg) {
+        if (arg == null) {
+            return "null";
+        }
+        if (arg instanceof Number || arg instanceof Boolean || arg instanceof UUID || arg instanceof Enum<?>) {
+            return String.valueOf(arg);
+        }
+        return arg.getClass().getSimpleName();
     }
 }
