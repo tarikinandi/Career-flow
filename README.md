@@ -12,7 +12,7 @@ What is implemented in the code today:
 - **Application tracking (ATS).** Create, list (paginated and sorted), read, update and delete job applications. Each application has a company, position, status (`WISHLIST`, `APPLIED`, `INTERVIEWING`, `OFFER`, `REJECTED`), location, salary range, applied date and notes.
 - **Interview log.** Attach interviews to an application: round (`RECRUITER_SCREEN`, `TECHNICAL`, `SYSTEM_DESIGN`, `MANAGER`, `ON_SITE`, `FINAL`), date and time, interviewer name, meeting link, notes and a follow-up flag. List an application's interviews and delete one.
 - **Flashcards with spaced repetition (SRS).** Create decks and flashcards, list a deck's cards and its due cards, and record a study result with a quality score from 0 to 5. Scheduling follows the SM-2 algorithm: a score below 3 resets the card (next review in 1 day), otherwise the interval grows 1 day, 6 days, then interval times easiness factor; the easiness factor is updated on every review and never drops below 1.3.
-- **Per-user data for lists.** Applications and decks are saved with their owner, and the list endpoints return only the signed-in user's rows (see Limitations for what is not scoped yet).
+- **Per-user data.** Every record is owned by a user: applications and decks directly, interviews through their application, flashcards through their deck. The service layer checks ownership on every operation by id (see "Ownership model" below).
 - **Consistent API envelope and errors.** Every response is `{ success, message, data, timestamp }`. Bean Validation errors return a field-to-message map; not found, business rule, bad credentials, access denied and duplicate email map to 404, 400, 401, 403 and 409.
 - **API documentation.** OpenAPI 3 with Swagger UI, including a bearer-token security scheme.
 - **Cross-cutting.** Database schema managed by Flyway migrations (Hibernate runs in `validate` mode), MapStruct DTO mappers, and an AOP logging aspect over controllers, services and repositories.
@@ -55,7 +55,11 @@ resources/db/migration/   Flyway: V1 schema, V2 users, V3 user ownership columns
 
 Data model: `users` own `applications` and `decks` (`user_id`); an application has many `interviews`; a deck has many `flashcards`.
 
-Security: all routes require a valid JWT except `/api/v1/auth/**`, `/v3/api-docs/**` and Swagger UI. CSRF is disabled (stateless API). CORS allows `http://localhost:5173` and `http://localhost:3000`. Roles `USER` and `ADMIN` exist on the user; no endpoint is restricted by role yet.
+Security: all routes require a valid JWT except `/api/v1/auth/**`, `/v3/api-docs/**` and Swagger UI. CSRF is disabled (stateless API). CORS allows `http://localhost:5173` and `http://localhost:3000` by default (override with `app.cors.allowed-origins`). Roles `USER` and `ADMIN` exist on the user; no endpoint is restricted by role yet.
+
+**Ownership model.** Ownership is enforced in the service layer, not only in the controllers. Every by-id lookup is scoped to the authenticated user (`findByIdAndUserId`, `findByIdAndApplicationUserId`, `findByIdAndDeckUserId`), and creating a child (an interview or a card) first resolves its parent through the same scoped lookup. A record that belongs to someone else answers **404**, exactly like a record that does not exist, so ids cannot be probed for existence. `OwnershipIT` runs this with two users against every by-id endpoint.
+
+**Logging policy.** `LoggingAspect` traces controller, service and repository calls at `DEBUG` only. It logs the method name, argument types, plain numeric, boolean, UUID and enum arguments (such as ids) and the duration. It never logs strings, request DTOs or return values, so passwords and JWTs cannot reach the log through it, and failures log the exception type only. Credential fields are also excluded from `toString()`, the unexpected-error handler returns a generic message (details stay in the server log), and `spring.jpa.show-sql` is off. `LoggingAspectIT` captures all log output at TRACE during register and login and asserts the password and token never appear.
 
 ## Running locally
 
@@ -139,24 +143,21 @@ A new card has no review date until it has been studied once, so it does not app
 
 ```bash
 cd backend
-./mvnw test                          # unit tests (Mockito)
-./mvnw test -Dtest='*IT'             # integration tests, need Docker
+./mvnw test                          # unit and integration tests; Docker must be running
 ```
 
 - Unit tests cover the application, interview and flashcard services (including the SM-2 rules and the quality range check).
-- Integration tests (`ApplicationControllerIT`, `FlashcardControllerIT`) start a throw-away `postgres:17` container with **Testcontainers**, so Docker must be running. Surefire's default pattern does not pick up `*IT` classes, hence the `-Dtest` filter.
-- The application context needs `JWT_SECRET` and `JWT_EXPIRATION` in the environment, because no test configuration file is committed (`backend/src/test/resources/application.yml` is git-ignored).
-- `BackendApplicationTests.contextLoads` has no container and expects a reachable database configured through the variables above.
+- Integration tests (`*IT`: ownership, logging, auth and error handling, application and flashcard flows) share one throw-away `postgres:17` container and one Spring context through `AbstractIntegrationTest` (**Testcontainers**), so Docker must be running. Surefire is configured to include `*IT`, so plain `./mvnw test` runs everything.
+- Tests read test-only JWT settings from `backend/src/test/resources/application.properties` and the database from the container, so no environment variables are needed to run them. Running the app itself still needs `JWT_SECRET` (Base64, at least 256 bits; startup fails otherwise) and the other variables listed above.
 - JaCoCo writes a coverage report to `backend/target/site/jacoco` after `test`.
 
 ## Project status and limitations
 
 This is a work-in-progress backend. Honest list of what is missing or rough:
 
-- **Ownership is only enforced on the list endpoints.** `GET /applications` and `GET /decks` return the current user's data. Requests by id (get, update and delete an application, add or list interviews, delete a deck, and every flashcard operation) look the record up by id without checking its owner, so a signed-in user who knows an id can reach another user's record. This needs to be fixed before any real multi-user use.
-- One integration test currently fails: `FlashcardControllerIT.shouldStudyFlashcardFlow` asserts `data.repetitions` in the study response, but `FlashcardResponse` does not expose that field. The unit tests and `ApplicationControllerIT` pass.
-- Authentication is minimal: no refresh tokens, no logout or token revocation, no request validation on register and sign-in, and roles are not used for authorization.
-- `LoggingAspect` logs method arguments and results at INFO for every controller, service and repository call, and `show-sql` is on. This is useful for development; masking of sensitive fields is not implemented, so do not run it with real credentials in shared logs.
+- Records created before the ownership columns existed (`user_id` is nullable in the schema) belong to nobody and are unreachable through the API; there is no backfill or `NOT NULL` migration yet.
+- Authentication is minimal: no refresh tokens, no logout or token revocation, no rate limiting or lockout on sign-in, and roles are not used for authorization.
+- Swagger UI and the OpenAPI document are public, JJWT is on 0.11.5 (older builder API), and JPA entities use Lombok `@Data` (generated `equals`/`hashCode`/`toString` over lazy relations is fragile).
 - Missing endpoints: no update for decks, flashcards or interviews, no get-by-id for decks, and the card and interview lists are not paginated.
 - No front end, no CI workflow, no Dockerfile for the backend in this repository, and no license file.
 - Some validation messages are in Turkish, others in English.
@@ -167,4 +168,4 @@ CareerFlow, iş arama sürecini yönetmek için yazılmış bir REST backend'idi
 
 Çalıştırmak için: `infrastructure/.env` dosyasını oluşturup `docker compose -f infrastructure/docker-compose.yml up -d postgres` ile veritabanını başlatın, ardından `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET` (Base64) ve `JWT_EXPIRATION` (milisaniye) ortam değişkenlerini tanımlayıp `backend` klasöründe `./mvnw spring-boot:run` komutunu çalıştırın. Swagger arayüzü `http://localhost:8080/swagger-ui.html` adresindedir.
 
-Durum: devam eden bir projedir. Başlıca eksikler: sahiplik kontrolü yalnızca liste uçlarında var (id ile erişimlerde yok), bir entegrasyon testi şu an başarısız, oturum yönetimi sade, ön yüz ve CI bu depoda yok. Ayrıntılar yukarıdaki "Project status and limitations" bölümündedir.
+Durum: devam eden bir projedir. Başlıca eksikler: tüm id ile erişimlerde kullanıcıya göre sahiplik kontrolü yapılır (başkasının kaydı 404 döner) ve loglarda parola/token tutulmaz; eksikler: oturum yönetimi sade, ön yüz ve CI bu depoda yok. Ayrıntılar yukarıdaki "Project status and limitations" bölümündedir.
