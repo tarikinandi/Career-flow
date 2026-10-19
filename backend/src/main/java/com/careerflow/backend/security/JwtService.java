@@ -1,6 +1,7 @@
 package com.careerflow.backend.security;
 
 import io.jsonwebtoken.Claims;
+import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.Jwt;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -18,11 +19,27 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
+    private static final int MIN_KEY_BYTES = 32;
+
     @Value("${jwt.secret}")
     private String secretKey;
 
     @Value("${jwt.expiration}")
     private long expiration;
+
+    /** Fail at startup, not on the first login, if the signing key is missing, not Base64, or shorter than 256 bits. */
+    @PostConstruct
+    void validateSecret() {
+        byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(secretKey);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("jwt.secret must be a Base64-encoded key", e);
+        }
+        if (keyBytes.length < MIN_KEY_BYTES) {
+            throw new IllegalStateException("jwt.secret must decode to at least " + MIN_KEY_BYTES + " bytes (256 bits)");
+        }
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
